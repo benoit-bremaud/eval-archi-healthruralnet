@@ -251,22 +251,102 @@ Le surcoût en complexité initiale est assumé et maîtrisé par l'adoption de 
 
 ## 4. Architecture détaillée
 
-<!-- Découpage en microservices : quels services, quelles responsabilités -->
+Le système est découpé en **8 microservices**, chacun aligné sur un domaine fonctionnel distinct. Ce découpage suit le principe du Bounded Context (DDD) pour minimiser le couplage.
+
+### 4.1 Catalogue des microservices
+
+| Service | Domaine | Responsabilités | Base de données |
+| ------- | ------- | --------------- | --------------- |
+| **Auth Service** | Identité & Accès | Authentification MFA, gestion tokens, permissions RBAC, délégation aidant | Redis (sessions) + PostgreSQL (utilisateurs) |
+| **Patient Service** | Gestion patients | Profils patients, données démographiques, préférences, consentements RGPD | PostgreSQL |
+| **Consultation Service** | Télémédecine | Création/gestion des téléconsultations (vidéo, audio, chat), planification RDV | PostgreSQL |
+| **Medical Record Service** | Dossier médical | Dossiers médicaux électroniques, antécédents, allergies, historique complet | MongoDB (documents non structurés) |
+| **Prescription Service** | Ordonnances | Création/validation de prescriptions, interactions médicamenteuses, posologie | PostgreSQL |
+| **Notification Service** | Communication | Alertes médicales, rappels RDV, notifications push/SMS/email, canal vocal | Redis (queues) |
+| **Interoperability Service** | Intégration SI | Adaptateurs HL7 v2, FHIR, GraphQL vers SI hospitaliers, pharmacies, registres | Cache de mapping (Redis) |
+| **Sync Service** | Offline/Online | File d'événements locale, réconciliation, détection de conflits, CRDT | Stockage local (SQLite chiffré) |
+
+### 4.2 Diagramme de découpage
 
 ```mermaid
-graph TB
-    subgraph "TODO: Microservices"
-        A[Service Consultation]
-        B[Service Patient]
-        C[Service Dossier Médical]
-        D[Service Notification]
-        E[Service Auth]
+graph LR
+    subgraph "Core Domain"
+        CONSULT["Consultation Service
+        Téléconsultation · RDV"]
+        DME["Medical Record Service
+        Dossiers · Antécédents"]
+        PRESC["Prescription Service
+        Ordonnances · Posologie"]
     end
+
+    subgraph "Supporting Domain"
+        PAT["Patient Service
+        Profils · Consentements"]
+        NOTIF["Notification Service
+        Push · SMS · Email · Vocal"]
+        INTEROP["Interoperability Service
+        HL7 · FHIR · GraphQL"]
+    end
+
+    subgraph "Generic Domain"
+        AUTH["Auth Service
+        MFA · RBAC · Tokens"]
+        SYNC["Sync Service
+        Offline · CRDT · Reconciliation"]
+    end
+
+    CONSULT -->|REST| PAT
+    CONSULT -->|REST| DME
+    CONSULT -.->|event: ConsultationCompleted| PRESC
+    CONSULT -.->|event: ConsultationScheduled| NOTIF
+    PRESC -.->|event: PrescriptionCreated| NOTIF
+    PRESC -.->|event: PrescriptionCreated| INTEROP
+    DME -.->|event: RecordUpdated| INTEROP
+    SYNC -.->|replay events| CONSULT
+    SYNC -.->|replay events| DME
 ```
+
+### 4.3 Justification du découpage
+
+- **Core Domain** (Consultation, Dossier Médical, Prescription) : ce sont les services à plus forte valeur métier et les plus complexes. Ils portent les règles métier critiques et doivent évoluer indépendamment.
+- **Supporting Domain** (Patient, Notification, Interopérabilité) : services nécessaires mais dont la logique métier est plus simple. Le service d'interopérabilité isole toute la complexité de traduction de formats.
+- **Generic Domain** (Auth, Sync) : services transversaux réutilisables. Le Sync Service est spécifique à HealthRuralNet (mode offline) mais techniquement générique.
 
 ## 5. Communication inter-services
 
-<!-- Synchrone (REST/gRPC) vs Asynchrone (Message Broker), choix et justification -->
+### 5.1 Deux modes de communication
+
+| Mode | Protocole | Cas d'usage | Justification |
+| ---- | --------- | ----------- | ------------- |
+| **Synchrone** | REST (JSON over HTTPS) | Queries : récupérer un profil patient, vérifier une authentification, lire un dossier | Le consommateur a besoin d'une réponse immédiate. REST est simple, standardisé et compatible avec les contraintes de faible débit (JSON léger). |
+| **Asynchrone** | Message Broker (RabbitMQ) | Commands/Events : prescription créée, consultation terminée, alerte médicale | Le producteur n'attend pas de réponse. Permet le découplage temporel (mode offline) et la distribution vers plusieurs consommateurs. |
+
+### 5.2 Règle de décision
+
+```mermaid
+graph TD
+    Q1{"Le consommateur a-t-il besoin
+    d'une réponse immédiate ?"}
+    Q1 -->|Oui| SYNC["REST synchrone
+    (ex: GET /patients/:id)"]
+    Q1 -->|Non| Q2{"L'opération peut-elle
+    être différée ?"}
+    Q2 -->|Oui| ASYNC["Event via Broker
+    (ex: PrescriptionCreated)"]
+    Q2 -->|Non| SYNC
+```
+
+### 5.3 Choix de RabbitMQ vs Kafka
+
+| Critère | RabbitMQ | Kafka |
+| ------- | -------- | ----- |
+| Modèle | Message queue classique (push) | Log distribué (pull) |
+| Complexité opérationnelle | Modérée | Élevée |
+| Mode offline replay | Suffisant avec persistance | Natif mais surdimensionné |
+| Volume attendu | Milliers de messages/jour | Millions de messages/jour |
+| **Verdict** | **Retenu** — adapté au volume et à la complexité opérationnelle d'une plateforme rurale | Surdimensionné — pertinent si HealthRuralNet atteint une échelle nationale massive |
+
+RabbitMQ est retenu pour sa simplicité opérationnelle. Le sujet décrit des zones avec infrastructure limitée — un cluster Kafka serait disproportionné. La migration vers Kafka reste possible grâce au découplage via le pattern Observer (cf. Part 3).
 
 ## 6. Gestion du mode offline
 
