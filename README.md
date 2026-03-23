@@ -16,26 +16,26 @@ Ce dépôt contient l'ensemble des livrables de l'évaluation : analyse des beso
 
 ## Équipe
 
-| Membre | Rôle | Parties assignées |
-|--------|------|-------------------|
-| _Membre 1_ | Analyste & Chef de Projet | Parties 1, 6 |
-| _Membre 2_ | Architecte Système | Parties 2, 7 |
-| _Membre 3_ | Concepteur Domaine Métier | Partie 4 |
-| _Membre 4_ | Tech Lead | Parties 3, 5 |
+| Membre | GitHub | Rôle | Parties assignées |
+|--------|--------|------|-------------------|
+| ZomboyTepix | [@ZomboyTepix](https://github.com/ZomboyTepix) | Analyste & Chef de Projet | Parties 1, 6 |
+| Benoît Bremaud | [@benoit-bremaud](https://github.com/benoit-bremaud) | Architecte Système | Parties 2, 7 |
+| David | [@David-Good-Enough](https://github.com/David-Good-Enough) | Concepteur Domaine Métier | Partie 4 |
+| Maximilian | [@maximilianpw](https://github.com/maximilianpw) | Tech Lead | Parties 3, 5 |
 
 ---
 
 ## Livrables
 
-| # | Livrable | Points | Document | Responsable |
-|---|----------|--------|----------|-------------|
-| 1 | Analyse et compréhension du recueil de besoins | 4 pts | [`docs/part1-requirements-analysis.md`](docs/part1-requirements-analysis.md) | Membre 1 |
-| 2 | Proposition et justification de l'architecture | 4 pts | [`docs/part2-architecture-proposal.md`](docs/part2-architecture-proposal.md) | Membre 2 |
-| 3 | Design Patterns | 3 pts | [`docs/part3-design-patterns.md`](docs/part3-design-patterns.md) | Membre 4 |
-| 4 | Conception du modèle métier | 4 pts | [`docs/part4-domain-model.md`](docs/part4-domain-model.md) | Membre 3 |
-| 5 | Pile technique complète | 2 pts | [`docs/part5-tech-stack.md`](docs/part5-tech-stack.md) | Membre 4 |
-| 6 | Planification et composition de l'équipe | 2 pts | [`docs/part6-team-planning.md`](docs/part6-team-planning.md) | Membre 1 |
-| 7 | Maintenabilité, évolutivité et dette technique | 1 pt | [`docs/part7-maintainability.md`](docs/part7-maintainability.md) | Membre 2 |
+| # | Livrable | Points | Document | Responsable | Statut |
+|---|----------|--------|----------|-------------|--------|
+| 1 | Analyse et compréhension du recueil de besoins | 4 pts | [`docs/part1-requirements-analysis.md`](docs/part1-requirements-analysis.md) | ZomboyTepix | Done |
+| 2 | Proposition et justification de l'architecture | 4 pts | [`docs/part2-architecture-proposal.md`](docs/part2-architecture-proposal.md) | benoit-bremaud | Done |
+| 3 | Design Patterns | 3 pts | [`docs/part3-design-patterns.md`](docs/part3-design-patterns.md) | maximilianpw | Done |
+| 4 | Conception du modèle métier | 4 pts | [`docs/part4-domain-model.md`](docs/part4-domain-model.md) | David-Good-Enough | Done |
+| 5 | Pile technique complète | 2 pts | [`docs/part5-tech-stack.md`](docs/part5-tech-stack.md) | maximilianpw | Done |
+| 6 | Planification et composition de l'équipe | 2 pts | [`docs/part6-team-planning.md`](docs/part6-team-planning.md) | ZomboyTepix | Done |
+| 7 | Maintenabilité, évolutivité et dette technique | 1 pt | [`docs/part7-maintainability.md`](docs/part7-maintainability.md) | benoit-bremaud | Done |
 
 **Total : 20 points**
 
@@ -43,13 +43,14 @@ Ce dépôt contient l'ensemble des livrables de l'évaluation : analyse des beso
 
 ## Structure du Projet
 
-```
+```text
 eval-archi-healthruralnet/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
 │   │   └── deliverable.yml
 │   └── pull_request_template.md
 ├── docs/
+│   ├── images/
 │   ├── part1-requirements-analysis.md
 │   ├── part2-architecture-proposal.md
 │   ├── part3-design-patterns.md
@@ -68,17 +69,18 @@ eval-archi-healthruralnet/
 ## Workflow Git
 
 - **Branches** : une branche dédiée par issue (`docs/issue-X-partY`)
-- **Commits** : format Conventional Commits — `docs(partX): description`
-- **Pull Requests** : liées aux issues avec `Closes #X`, review croisée avant merge
-- **Protection** : aucun commit direct sur `main`
+- **Commits** : format Conventional Commits (Angular) — `docs(partX): description`
+- **Pull Requests** : liées aux issues avec `Closes #X`, review croisée obligatoire (1 minimum)
+- **Protection** : aucun commit direct sur `main`, historique linéaire, force push interdit
+- **Kanban** : [GitHub Project](https://github.com/users/benoit-bremaud/projects/42) avec colonnes Backlog → À faire → En cours → En relecture → Terminé
 
 ---
 
 ## État d'avancement
 
 - [x] Phase 0 — Setup du dépôt
-- [ ] Phase 1 — Rédaction des parties individuelles
-- [ ] Phase 2 — Relecture croisée et consolidation
+- [x] Phase 1 — Rédaction des parties individuelles
+- [x] Phase 2 — Relecture croisée et consolidation
 - [ ] Phase 3 — Livraison finale
 
 ---
