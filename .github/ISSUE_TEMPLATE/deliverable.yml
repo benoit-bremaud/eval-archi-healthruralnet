@@ -1,0 +1,35 @@
+name: "Livrable"
+description: "Tâche liée à un livrable de l'évaluation"
+labels: ["type:deliverable"]
+body:
+  - type: dropdown
+    id: part
+    attributes:
+      label: Partie
+      description: "Quelle partie du livrable ?"
+      options:
+        - "Partie 1 — Analyse des besoins"
+        - "Partie 2 — Architecture"
+        - "Partie 3 — Design Patterns"
+        - "Partie 4 — Modèle métier"
+        - "Partie 5 — Stack technique"
+        - "Partie 6 — Planification"
+        - "Partie 7 — Maintenabilité"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: "Décrivez la tâche à réaliser"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d'acceptation
+      description: "Quels critères doivent être remplis ?"
+      value: |
+        - [ ] Contenu rédigé et structuré
+        - [ ] Diagrammes Mermaid intégrés (si applicable)
+        - [ ] Relecture par un pair

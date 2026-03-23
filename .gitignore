@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (if any tooling)
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Build artifacts
+*.pdf
+*.zip
+dist/
+build/
