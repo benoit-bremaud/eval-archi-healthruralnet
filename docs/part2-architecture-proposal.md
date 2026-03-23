@@ -617,6 +617,8 @@ Le sujet mentionne plusieurs propositions internes qui ont été évaluées puis
 
 **Principe directeur** : chaque proposition écartée ou reportée l'est pour une raison documentée, pas par ignorance. Les propositions reportées pourront être intégrées dans des versions futures sans modifier l'architecture core, grâce au découplage microservices + Clean Architecture.
 
+> **Note** : les propositions marquées "Reportée" ne sont pas rejetées par manque de compétence ou d'ambition. Elles nécessitent des prérequis concrets (cadre éthique validé, étude d'usage terrain, normalisation des données IoT) qui dépassent le scope du MVP. L'architecture est explicitement conçue pour les accueillir sans refonte — un nouveau microservice ou un nouvel adaptateur suffit, conformément au principe Open/Closed (SOLID).
+
 ---
 
 *HealthRuralNet — Evaluation Architecture Logicielle M1 — Mars 2026*
