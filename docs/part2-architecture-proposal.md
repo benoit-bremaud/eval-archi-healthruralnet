@@ -20,16 +20,111 @@
 
 ## 1. Vision architecturale globale
 
-<!-- Schéma d'architecture haut niveau en Mermaid (diagramme de composants / C4 Context) -->
+HealthRuralNet est structuré en une architecture distribuée orientée microservices et événements, conçue pour fonctionner en conditions de connectivité dégradée. Le schéma ci-dessous présente la vue haut niveau du système.
+
+### 1.1 Diagramme d'architecture globale
 
 ```mermaid
 graph TB
-    subgraph "TODO: Architecture globale"
-        A[Client Mobile/Web] --> B[API Gateway]
-        B --> C[Services Métier]
-        C --> D[Base de Données]
+    subgraph "Clients"
+        MOB["Application Mobile (PWA)
+        Mode offline + cache local"]
+        WEB["Application Web
+        Navigateur desktop"]
+        SMS["Canal SMS / Vocal
+        Zones sans data"]
     end
+
+    subgraph "Point d'entrée"
+        GW["API Gateway
+        Auth · Rate limiting · Routing"]
+    end
+
+    subgraph "Services Métier"
+        AUTH[Service Authentification]
+        PAT[Service Patient]
+        CONSULT[Service Consultation]
+        DME[Service Dossier Médical]
+        PRESC[Service Prescription]
+        NOTIF[Service Notification]
+        INTEROP[Service Interopérabilité
+        HL7 v2 · FHIR · GraphQL]
+        SYNC[Service Synchronisation
+        Offline / Online]
+    end
+
+    subgraph "Infrastructure Événementielle"
+        BROKER["Message Broker
+        (RabbitMQ / Kafka)"]
+        ES["Event Store
+        Audit trail"]
+    end
+
+    subgraph "Persistance"
+        PG["PostgreSQL
+        Données relationnelles"]
+        MONGO["MongoDB
+        Documents médicaux"]
+        REDIS["Redis
+        Cache · Sessions"]
+        LOCAL["Stockage local chiffré
+        (sur device patient/médecin)"]
+    end
+
+    subgraph "Systèmes Externes"
+        HOP["SI Hospitaliers
+        HL7 v2 · FHIR"]
+        PHARMA["Systèmes Pharmacie"]
+        GOV["Registres gouvernementaux"]
+    end
+
+    MOB --> GW
+    WEB --> GW
+    SMS --> NOTIF
+
+    GW --> AUTH
+    GW --> PAT
+    GW --> CONSULT
+    GW --> DME
+    GW --> PRESC
+
+    AUTH --> REDIS
+    PAT --> PG
+    CONSULT --> PG
+    DME --> MONGO
+    PRESC --> PG
+
+    CONSULT -->|événements| BROKER
+    DME -->|événements| BROKER
+    PRESC -->|événements| BROKER
+    BROKER --> NOTIF
+    BROKER --> ES
+    BROKER --> SYNC
+    BROKER --> INTEROP
+
+    INTEROP --> HOP
+    INTEROP --> PHARMA
+    INTEROP --> GOV
+
+    SYNC --> LOCAL
+    LOCAL -->|reconnexion| SYNC
+    SYNC -->|sync| BROKER
+
+    MOB -.->|mode offline| LOCAL
 ```
+
+### 1.2 Lecture du diagramme
+
+| Couche | Rôle | Contrainte adressée |
+| ------ | ---- | ------------------- |
+| Clients | Applications PWA mobile-first + web + canal SMS | Accessibilité zones rurales, patients peu technophiles |
+| API Gateway | Point d'entrée unique, authentification, rate limiting | Sécurité, routage, protection des services |
+| Services Métier | 8 microservices à responsabilité unique | Modularité, déploiement indépendant, scalabilité ciblée |
+| Message Broker | Communication asynchrone inter-services | Mode offline, découplage temporel, résilience |
+| Event Store | Journal immuable de tous les événements | Traçabilité réglementaire (RGPD/HIPAA) |
+| Persistance | Polyglot persistence (SQL + NoSQL + cache) | Données structurées vs documents médicaux vs performance |
+| Stockage local | Cache chiffré sur device | Mode déconnecté, continuité de service |
+| Systèmes externes | Adaptateurs vers SI hospitaliers | Interopérabilité formats hétérogènes |
 
 ## 2. Styles architecturaux retenus
 
