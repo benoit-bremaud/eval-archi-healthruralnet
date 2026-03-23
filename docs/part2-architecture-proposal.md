@@ -421,7 +421,97 @@ Le Strategy Pattern (cf. Part 3) détecte un réseau en mode dégradé. Le Sync 
 
 ## 7. Sécurité et conformité
 
-<!-- Chiffrement, authentification, gestion des permissions (RBAC vs ABAC) -->
+La sécurité des données médicales est une contrainte absolue. Le sujet mentionne explicitement le RGPD, le HIPAA, le stockage souverain et les débats internes sur les modèles d'authentification. Cette section détaille les choix retenus et leurs justifications.
+
+### 7.1 Chiffrement des données
+
+| Couche | Mécanisme | Justification |
+| ------ | --------- | ------------- |
+| **Transit** | TLS 1.3 obligatoire sur toutes les communications | Standard industrie, protection contre l'interception sur réseaux mobiles non fiables |
+| **Repos (serveur)** | AES-256 sur les volumes de stockage (PostgreSQL TDE, MongoDB Encrypted Storage Engine) | Conformité RGPD art. 32 — chiffrement des données personnelles au repos |
+| **Repos (device)** | SQLCipher (AES-256-CBC) pour le cache local offline | Protection en cas de perte ou vol du device du praticien |
+| **Inter-services** | mTLS (Mutual TLS) entre microservices | Zero-trust : chaque service authentifie l'appelant, pas seulement l'inverse |
+
+Le sujet mentionne une proposition d'algorithme maison basé sur ChaCha20. Cette approche est **écartée** : en sécurité, les algorithmes propriétaires sont une anti-pratique. AES-256 et TLS 1.3 sont éprouvés, audités, et compatibles avec tous les SI hospitaliers qui utilisent RSA-2048.
+
+### 7.2 Authentification
+
+```mermaid
+graph LR
+    subgraph "Flux d'authentification"
+        U["Utilisateur"] -->|1. Login + MFA| AUTH["Auth Service"]
+        AUTH -->|2. Vérifie identité| IDP["Identity Provider"]
+        AUTH -->|3. Émet JWT signé| U
+        U -->|4. JWT dans header| GW["API Gateway"]
+        GW -->|5. Valide JWT| AUTH
+        GW -->|6. Route vers service| SVC["Service Métier"]
+    end
+
+    subgraph "Cas d'urgence"
+        MED["Médecin urgentiste"] -->|Token temporaire 15min| AUTH
+        AUTH -->|Break-glass access| SVC
+    end
+```
+
+| Mécanisme | Description | Justification |
+| --------- | ----------- | ------------- |
+| **MFA obligatoire** | Mot de passe + OTP (SMS ou TOTP) | Exigence HIPAA pour l'accès aux données médicales. SMS choisi car les zones rurales n'ont pas toujours de smartphone compatible TOTP. |
+| **JWT signé (RS256)** | Token courte durée (15 min) + refresh token (24h) | Permet la validation sans appel réseau (important pour la performance en faible débit) |
+| **Break-glass access** | Token temporaire d'urgence (15 min, scope limité, audit renforcé) | Le sujet mentionne que les médecins urgentistes ne peuvent pas perdre du temps avec l'authentification. Ce mode dérogatoire est audité à 100%. |
+| **Biométrie** | Optionnelle, en complément du MFA, jamais seule | Le sujet mentionne la résistance des médecins à la biométrie obligatoire. Elle est proposée comme commodité, pas comme obligation. |
+
+### 7.3 Gestion des permissions : RBAC contextuel
+
+Le sujet pose la question RBAC vs ABAC. Le choix retenu est un **RBAC enrichi de règles contextuelles**, un compromis entre simplicité et flexibilité.
+
+**Pourquoi pas ABAC pur ?** L'ABAC avec règles dynamiques (proposé dans le sujet) est puissant mais complexe à administrer. Dans un contexte où les professionnels de santé peinent déjà à adopter les outils numériques, un système de permissions opaque et dynamique serait un frein à l'adoption.
+
+**Modèle retenu** :
+
+| Rôle | Permissions de base | Règle contextuelle |
+| ---- | ------------------- | ------------------ |
+| **Patient** | Lire son propre dossier, prendre RDV, voir ses prescriptions | Peut déléguer la lecture à un aidant familial (consentement explicite, révocable) |
+| **Médecin traitant** | Lire/écrire dossiers de ses patients, prescrire, consulter | Accès étendu temporaire aux dossiers d'autres patients en cas de consultation ponctuelle |
+| **Spécialiste** | Lire dossier complet, ajouter avis spécialisé | Accès limité dans le temps (durée de la prise en charge) |
+| **Infirmier** | Lire dossier, ajouter observations, suivre traitements | Scope limité à sa structure de santé |
+| **Administrateur** | Gérer utilisateurs, structures, reporting | Aucun accès aux données médicales (séparation admin/médical) |
+
+**Délégation aidant familial** : le patient peut explicitement autoriser un proche à consulter son dossier. Cette délégation est :
+- Enregistrée avec consentement signé numériquement
+- Révocable à tout moment par le patient
+- Limitée en scope (lecture seule, pas de prescription)
+- Auditée dans l'Event Store
+
+### 7.4 Conformité réglementaire
+
+| Réglementation | Exigence | Implémentation dans HealthRuralNet |
+| -------------- | -------- | ---------------------------------- |
+| **RGPD** | Consentement explicite, droit à l'oubli, portabilité | Consentement stocké par le Patient Service. Droit à l'oubli via anonymisation (pas suppression — l'historique médical doit être conservé pour des raisons légales). Export FHIR pour la portabilité. |
+| **RGPD** | Minimisation des données | Chaque service n'accède qu'aux données nécessaires à son domaine (principe du moindre privilège renforcé par le découpage microservices) |
+| **HIPAA** | Audit trail complet | Event Store conserve l'intégralité des accès et modifications. Chaque événement porte l'identité de l'auteur et le timestamp. |
+| **Stockage souverain** | Données médicales stockées dans le pays du patient | Architecture multi-région : les bases de données sont déployées par zone géographique. Le routage est géré par l'API Gateway en fonction de la localisation du patient. |
+| **Export des données** | Restrictions sur le transfert transfrontalier | Les données ne transitent jamais entre régions sans anonymisation préalable. Les agrégats statistiques (épidémiologie) sont anonymisés avant export. |
+
+### 7.5 Synthèse sécurité
+
+```mermaid
+graph TB
+    subgraph "Defense in Depth"
+        L1["Couche 1 : TLS 1.3 + mTLS
+        Chiffrement en transit"]
+        L2["Couche 2 : API Gateway
+        Rate limiting · Auth · WAF"]
+        L3["Couche 3 : JWT + RBAC
+        Permissions par rôle et contexte"]
+        L4["Couche 4 : Chiffrement au repos
+        AES-256 · SQLCipher"]
+        L5["Couche 5 : Event Store
+        Audit trail immuable"]
+    end
+    L1 --> L2 --> L3 --> L4 --> L5
+```
+
+L'approche est celle du **Defense in Depth** : chaque couche apporte une protection supplémentaire. La compromission d'une couche ne donne pas accès aux données — il faut franchir toutes les couches.
 
 ## 8. Justification des choix
 
