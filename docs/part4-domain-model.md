@@ -1,6 +1,7 @@
 ## Diagramme de classes UML  
   
-  ![[Healthcare User Management.png]]
+ ![Diagramme de classes UML](images/Healthcare%20User%20Management.png)
+
   
   
 Le modèle métier de **HealthRuralNet** a été construit à partir des besoins principaux identifiés dans l’analyse fonctionnelle : permettre l’accès aux soins à distance, organiser les interactions entre patients et professionnels de santé, sécuriser les données médicales, assurer un suivi dans le temps et encadrer l’accès aux informations sensibles. Le choix a été fait de proposer un diagramme **suffisamment riche pour représenter les objets métier essentiels**, tout en restant **lisible et compréhensible** dans le cadre de l’épreuve. L’objectif n’était donc pas de modéliser tous les détails techniques possibles, mais de construire un **socle métier cohérent, évolutif et maintenable**.  
