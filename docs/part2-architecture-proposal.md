@@ -519,19 +519,19 @@ Cette section consolide les arguments qui démontrent que l'architecture propos�
 
 ### 8.1 Matrice exigences → décisions architecturales
 
-| Exigence du sujet | Décision architecturale | Section |
-| ------------------ | ----------------------- | ------- |
-| Consultations médicales à distance | Service Consultation dédié avec support vidéo/audio/chat, scalable indépendamment | §4 |
-| Suivi des patients chroniques | Service Patient + Service Dossier Médical avec persistance MongoDB pour données non structurées | §4 |
-| Gestion sécurisée des dossiers médicaux | Chiffrement E2E (TLS 1.3 + AES-256), RBAC contextuel, Event Store pour audit trail | §7 |
-| Interconnexion avec structures de santé locales | Service Interopérabilité avec Adapter Pattern (HL7 v2, FHIR, GraphQL) | §4, Part 3 |
-| Connectivité variable / zones rurales | Architecture Event-Driven + Sync Service + stockage local chiffré | §2.2, §6 |
-| Mode offline obligatoire | Event sourcing local, queue d'événements, LWW avec alerte humaine pour conflits | §6 |
-| Conformité RGPD / HIPAA | Chiffrement au repos, consentement explicite, droit à l'oubli par anonymisation, stockage souverain | §7.4 |
-| Multi-pays / réglementations différentes | Découpage microservices + déploiement multi-région via API Gateway | §2.1, §7.4 |
-| Accessibilité patients peu technophiles | PWA mobile-first + canal SMS/vocal pour zones sans data | §1 |
-| Évolutivité et pérennité | Clean Architecture isolant le domaine métier des choix d'infrastructure | §2.3 |
-| Résilience face aux pannes | Microservices isolés + Circuit Breaker + Message Broker async | §2.1, §5, Part 3 |
+| Exigence du sujet | Décision architecturale | Impact (M/S/Séc/Mai) | Section |
+| ------------------ | ----------------------- | -------------------- | ------- |
+| Consultations médicales à distance | Service Consultation dédié avec support vidéo/audio/chat, scalable indépendamment | **Scalabilité** — scale horizontal indépendant du reste | §4 |
+| Suivi des patients chroniques | Service Patient + Service Dossier Médical avec persistance MongoDB pour données non structurées | **Modularité** — séparation des responsabilités patient vs dossier | §4 |
+| Gestion sécurisée des dossiers médicaux | Chiffrement E2E (TLS 1.3 + AES-256), RBAC contextuel, Event Store pour audit trail | **Sécurité** — defense in depth, audit trail réglementaire | §7 |
+| Interconnexion avec structures de santé locales | Service Interopérabilité avec Adapter Pattern (HL7 v2, FHIR, GraphQL) | **Modularité + Maintenabilité** — adaptateurs isolés, ajout de formats sans impact | §4, Part 3 |
+| Connectivité variable / zones rurales | Architecture Event-Driven + Sync Service + stockage local chiffré | **Scalabilité + Sécurité** — découplage temporel + chiffrement offline | §2.2, §6 |
+| Mode offline obligatoire | Event sourcing local, queue d'événements, LWW avec alerte humaine pour conflits | **Maintenabilité** — historique complet, auditabilité native | §6 |
+| Conformité RGPD / HIPAA | Chiffrement au repos, consentement explicite, droit à l'oubli par anonymisation, stockage souverain | **Sécurité** — conformité réglementaire intégrée dans l'architecture | §7.4 |
+| Multi-pays / réglementations différentes | Découpage microservices + déploiement multi-région via API Gateway | **Modularité + Scalabilité** — adaptation par région sans impact global | §2.1, §7.4 |
+| Accessibilité patients peu technophiles | PWA mobile-first + canal SMS/vocal pour zones sans data | **Maintenabilité** — un seul codebase PWA pour mobile et web | §1 |
+| Évolutivité et pérennité | Clean Architecture isolant le domaine métier des choix d'infrastructure | **Maintenabilité** — changement de techno sans réécriture métier | §2.3 |
+| Résilience face aux pannes | Microservices isolés + Circuit Breaker + Message Broker async | **Scalabilité + Modularité** — isolation des pannes par service | §2.1, §5, Part 3 |
 
 ### 8.2 Risques identifiés et mitigations
 
