@@ -17,6 +17,198 @@ Le modèle a été conçu pour être :
 
 ![Diagramme de classes UML](images/Healthcare%20User%20Management.png)
 
+### Diagramme de classes Mermaid (version inline)
+
+```mermaid
+classDiagram
+    class Utilisateur {
+        <<abstract>>
+        #id: UUID
+        #nom: String
+        #prenom: String
+        #email: String
+        #telephone: String
+        +seConnecter() bool
+        +seDeconnecter() void
+        +mettreAJourProfil() void
+    }
+
+    class Patient {
+        -numeroPatient: String
+        -groupeSanguin: String
+        -dateNaissance: Date
+        +prendreRendezVous() RendezVous
+        +consulterDossier() DossierMedical
+        +donnerConsentement() Consentement
+        +revoquerConsentement(id) void
+    }
+
+    class ProfessionnelSante {
+        <<abstract>>
+        #numeroProfessionnel: String
+        #specialite: String
+        +consulterDossier(patient) DossierMedical
+        +ajouterObservation(dossier, texte) void
+    }
+
+    class Medecin {
+        -specialitePrincipale: String
+        +diagnostiquer(consultation) void
+        +prescrire(consultation) Prescription
+        +facturer()* Facture
+    }
+
+    class Infirmier {
+        -service: String
+        +enregistrerObservation(dossier) void
+        +suivrePatient(patient) SuiviMedical
+    }
+
+    class Administrateur {
+        -role: RoleAdministrateur
+        +gererComptes() void
+        +genererRapport() void
+    }
+
+    class DossierMedical {
+        -numeroDossier: UUID
+        -antecedents: String[]
+        -allergies: String[]
+        -traitements: String[]
+        -resumeClinique: String
+        -dateModification: Date
+        +ajouterAntecedent(texte) void
+        +ajouterAllergie(texte) void
+        +obtenirResume() String
+        +verifierAutorisationAcces(utilisateur) bool
+    }
+
+    class Consultation {
+        <<abstract>>
+        #id: UUID
+        #dateConsultation: DateTime
+        #motif: String
+        #compteRendu: String
+        #statut: StatutConsultation
+        +demarrer() void
+        +terminer() void
+        +facturer()* Facture
+    }
+
+    class Teleconsultation {
+        -lienVisio: String
+        -qualiteReseau: String
+        +facturer() Facture
+    }
+
+    class ConsultationPresentielle {
+        -lieuConsultation: String
+        +facturer() Facture
+    }
+
+    class ConsultationUrgence {
+        -niveauUrgence: int
+        -breakGlassUtilise: bool
+        +facturer() Facture
+    }
+
+    class Prescription {
+        -id: UUID
+        -datePrescription: Date
+        -instructions: String
+        -duree: int
+        +valider() void
+        +renouveler() Prescription
+        +annuler() void
+    }
+
+    class Medicament {
+        -nom: String
+        -dosage: String
+        -posologie: String
+        -contreIndications: String[]
+    }
+
+    class RendezVous {
+        -id: UUID
+        -dateHeure: DateTime
+        -motif: String
+        -statut: StatutRDV
+        +confirmer() void
+        +annuler() void
+        +reprogrammer(nouvelleDate) void
+    }
+
+    class SuiviMedical {
+        -id: UUID
+        -objectifs: String
+        -statut: StatutSuivi
+        +mettreAJour(notes) void
+        +cloturer() void
+    }
+
+    class StructureSante {
+        -id: UUID
+        -nom: String
+        -typeStructure: TypeStructure
+        -localisation: String
+        +listerPraticiens() ProfessionnelSante[]
+    }
+
+    class Consentement {
+        -id: UUID
+        -dateDebut: Date
+        -dateFin: Date
+        -actif: bool
+        -scope: String
+        +revoquer() void
+        +estValide() bool
+    }
+
+    class AidantFamilial {
+        -lienParente: String
+        +consulterDossier(patient) DossierMedical
+    }
+
+    class Confidentialite {
+        -niveauAcces: NiveauAcces
+        -partageAutorise: bool
+        +verifierAcces(utilisateur) bool
+    }
+
+    class Facture {
+        -id: UUID
+        -montant: float
+        -dateEmission: Date
+        -typeConsultation: TypeConsultation
+    }
+
+    %% Héritage
+    Utilisateur <|-- Patient
+    Utilisateur <|-- ProfessionnelSante
+    Utilisateur <|-- Administrateur
+    ProfessionnelSante <|-- Medecin
+    ProfessionnelSante <|-- Infirmier
+    Consultation <|-- Teleconsultation
+    Consultation <|-- ConsultationPresentielle
+    Consultation <|-- ConsultationUrgence
+
+    %% Associations
+    Patient "1" --> "1" DossierMedical : possède
+    Patient "1" --> "*" RendezVous : prend
+    Patient "1" --> "*" Consentement : donne
+    Patient "1" --> "0..1" AidantFamilial : délègue à
+    Medecin "1" --> "*" Consultation : réalise
+    Consultation "1" --> "0..1" Prescription : génère
+    Consultation "*" --> "1" Patient : concerne
+    Consultation "1" --> "0..1" Facture : produit
+    Prescription "1" --> "1..*" Medicament : contient
+    DossierMedical "1" --> "1" Confidentialite : protégé par
+    DossierMedical "1" --> "*" SuiviMedical : inclut
+    ProfessionnelSante "*" --> "1" StructureSante : rattaché à
+    RendezVous "*" --> "1" Medecin : avec
+```
+
 ---
 
 ## 3. Inventaire des entités métier
