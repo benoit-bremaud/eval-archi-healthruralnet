@@ -513,9 +513,45 @@ graph TB
 
 L'approche est celle du **Defense in Depth** : chaque couche apporte une protection supplémentaire. La compromission d'une couche ne donne pas accès aux données — il faut franchir toutes les couches.
 
-## 8. Justification des choix
+## 8. Justification des choix — Synthèse
 
-<!-- Synthèse : pourquoi cette architecture répond aux besoins de HealthRuralNet -->
+Cette section consolide les arguments qui démontrent que l'architecture proposée répond aux contraintes majeures de HealthRuralNet.
+
+### 8.1 Matrice exigences → décisions architecturales
+
+| Exigence du sujet | Décision architecturale | Section |
+| ------------------ | ----------------------- | ------- |
+| Consultations médicales à distance | Service Consultation dédié avec support vidéo/audio/chat, scalable indépendamment | §4 |
+| Suivi des patients chroniques | Service Patient + Service Dossier Médical avec persistance MongoDB pour données non structurées | §4 |
+| Gestion sécurisée des dossiers médicaux | Chiffrement E2E (TLS 1.3 + AES-256), RBAC contextuel, Event Store pour audit trail | §7 |
+| Interconnexion avec structures de santé locales | Service Interopérabilité avec Adapter Pattern (HL7 v2, FHIR, GraphQL) | §4, Part 3 |
+| Connectivité variable / zones rurales | Architecture Event-Driven + Sync Service + stockage local chiffré | §2.2, §6 |
+| Mode offline obligatoire | Event sourcing local, queue d'événements, LWW avec alerte humaine pour conflits | §6 |
+| Conformité RGPD / HIPAA | Chiffrement au repos, consentement explicite, droit à l'oubli par anonymisation, stockage souverain | §7.4 |
+| Multi-pays / réglementations différentes | Découpage microservices + déploiement multi-région via API Gateway | §2.1, §7.4 |
+| Accessibilité patients peu technophiles | PWA mobile-first + canal SMS/vocal pour zones sans data | §1 |
+| Évolutivité et pérennité | Clean Architecture isolant le domaine métier des choix d'infrastructure | §2.3 |
+| Résilience face aux pannes | Microservices isolés + Circuit Breaker + Message Broker async | §2.1, §5, Part 3 |
+
+### 8.2 Risques identifiés et mitigations
+
+| Risque | Impact | Mitigation |
+| ------ | ------ | ---------- |
+| Complexité opérationnelle des microservices | Coût de monitoring et déploiement élevé | Conteneurisation (Docker/K8s), observabilité centralisée (cf. Part 5), démarrage progressif avec 3-4 services core puis extension |
+| Latence réseau en zone rurale | Expérience utilisateur dégradée | Mode offline-first, cache local, delta sync prioritaire pour données critiques |
+| Adoption par les professionnels de santé | Rejet de la plateforme | Interface simplifiée, break-glass access pour urgences, biométrie optionnelle (pas obligatoire) |
+| Cohérence des données en mode offline | Conflits de mise à jour concurrente | LWW + détection de conflits + alerte humaine + historique complet dans l'Event Store |
+| Dépendance au message broker | SPOF potentiel si RabbitMQ tombe | Cluster RabbitMQ haute disponibilité + fallback en mode dégradé (REST direct) |
+
+### 8.3 Conclusion
+
+L'architecture Microservices + Event-Driven + Clean Architecture n'est pas un choix par effet de mode. Elle est la réponse directe aux trois défis fondamentaux de HealthRuralNet :
+
+1. **La connectivité** : seule une architecture événementielle permet un mode offline natif avec synchronisation différée
+2. **L'hétérogénéité** : seul un découpage en services indépendants permet d'absorber la diversité des SI hospitaliers et des réglementations
+3. **La pérennité** : seule la Clean Architecture garantit que les changements technologiques inévitables (le sujet en décrit déjà plusieurs) n'impacteront pas la logique métier
+
+Le surcoût en complexité initiale est le prix de cette robustesse. Il est maîtrisé par des choix pragmatiques : RabbitMQ plutôt que Kafka, RBAC contextuel plutôt qu'ABAC pur, LWW plutôt que CRDT. Chaque choix vise le **juste nécessaire** pour le contexte rural, pas la solution la plus sophistiquée.
 
 ---
 
