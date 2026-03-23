@@ -350,7 +350,74 @@ RabbitMQ est retenu pour sa simplicité opérationnelle. Le sujet décrit des zo
 
 ## 6. Gestion du mode offline
 
-<!-- Stratégie de synchronisation différée, CRDT, gestion des conflits -->
+Le mode offline est la contrainte architecturale la plus différenciante de HealthRuralNet. En zone rurale, la connexion peut être absente pendant des heures, voire des jours. Le système doit permettre aux praticiens de continuer à consulter, prescrire et mettre à jour les dossiers médicaux sans connexion.
+
+### 6.1 Stratégie globale : Event Sourcing local + sync différée
+
+```mermaid
+sequenceDiagram
+    participant M as Médecin (offline)
+    participant LS as Stockage Local Chiffré
+    participant EQ as Event Queue Locale
+    participant SS as Sync Service
+    participant MB as Message Broker
+    participant DME as Medical Record Service
+
+    Note over M,LS: Phase 1 — Travail offline
+    M->>LS: Consulte le dossier patient (cache local)
+    M->>EQ: Crée prescription (event: PrescriptionCreated)
+    M->>EQ: Met à jour dossier (event: RecordUpdated)
+    EQ->>LS: Persiste les événements localement
+
+    Note over M,DME: Phase 2 — Reconnexion
+    SS->>EQ: Détecte la reconnexion
+    EQ->>SS: Envoie les événements en attente (FIFO)
+    SS->>SS: Détection de conflits
+    SS->>MB: Publie les événements réconciliés
+    MB->>DME: Traite les événements
+    DME-->>SS: Confirmation de synchronisation
+    SS-->>LS: Met à jour le cache local
+```
+
+### 6.2 Stockage local chiffré
+
+Les données médicales stockées sur le device du praticien sont chiffrées au repos :
+
+- **Base locale** : SQLite chiffré (SQLCipher) pour les données structurées
+- **Documents** : fichiers chiffrés AES-256 pour les pièces jointes (imagerie, comptes rendus)
+- **Clé de chiffrement** : dérivée du token d'authentification du praticien (PBKDF2), jamais stockée en clair
+- **TTL** : les données locales expirent après un délai configurable (ex. : 72h sans sync) pour limiter le risque en cas de perte du device
+
+### 6.3 Gestion des conflits
+
+Le scénario critique : deux praticiens modifient le même dossier patient en offline simultanément.
+
+**Stratégie retenue : Last-Write-Wins (LWW) avec détection et alerte**
+
+| Stratégie évaluée | Avantage | Inconvénient | Verdict |
+| ------------------ | -------- | ------------ | ------- |
+| CRDT (Conflict-free Replicated Data Type) | Résolution automatique sans conflit | Complexité très élevée pour des données médicales structurées. Le sujet lui-même mentionne que "personne ne sait comment cela se comporterait avec des prescriptions médicales". | Écarté |
+| Merge automatique | Pas de perte de données | Risque de fusion incohérente (2 prescriptions contradictoires fusionnées) | Écarté — inacceptable pour des données médicales |
+| **LWW + alerte humaine** | Simple, prévisible, auditable | Perte potentielle d'une modification | **Retenu** — la dernière écriture gagne, mais un conflit détecté génère une alerte au praticien pour validation manuelle |
+
+**Fonctionnement** :
+
+1. Chaque événement porte un **vector clock** (identifiant device + timestamp)
+2. À la synchronisation, le Sync Service compare les vector clocks
+3. Si conflit détecté : la version la plus récente est appliquée ET une alerte `ConflictDetected` est envoyée aux deux praticiens
+4. Le praticien peut consulter les deux versions et valider ou corriger manuellement
+5. L'historique complet est conservé dans l'Event Store (aucune donnée n'est perdue)
+
+### 6.4 Scénarios concrets
+
+**Scénario 1 — Prescription offline** :
+Un médecin prescrit un médicament sans connexion. L'événement `PrescriptionCreated` est stocké localement. À la reconnexion, l'événement est publié vers le Prescription Service qui vérifie les interactions médicamenteuses, puis notifie la pharmacie via le service d'interopérabilité.
+
+**Scénario 2 — Conflit de mise à jour** :
+Un médecin de ville et un spécialiste hospitalier modifient le même dossier offline. Le médecin ajoute une allergie, le spécialiste met à jour le diagnostic. Les deux événements sont de nature différente (champs distincts) → pas de conflit, merge automatique. Si les deux modifient le même champ → LWW + alerte.
+
+**Scénario 3 — Connexion intermittente (faible débit)** :
+Le Strategy Pattern (cf. Part 3) détecte un réseau en mode dégradé. Le Sync Service passe en mode "delta sync" : seuls les événements critiques (prescriptions, alertes) sont synchronisés en priorité. Les données moins urgentes (mises à jour de profil) attendent une meilleure connexion.
 
 ## 7. Sécurité et conformité
 
