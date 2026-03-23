@@ -200,6 +200,15 @@ graph TB
     EQ -->|reconnexion| MB
 ```
 
+### 2.5 Impact des styles retenus sur les 4 axes d'évaluation
+
+| Axe | Microservices | Event-Driven | Clean Architecture |
+| --- | ------------- | ------------ | ------------------ |
+| **Modularité** | Forte — chaque service est un module autonome avec ses propres responsabilités et son propre cycle de vie | Moyenne — le broker découple les producteurs des consommateurs, mais ajoute une dépendance structurelle | Forte — séparation domaine/infrastructure garantit que les modules internes sont indépendants |
+| **Scalabilité** | Forte — chaque service scale indépendamment (ex. : Consultation Service scale horizontalement en pic d'usage) | Forte — le découplage asynchrone absorbe les pics de charge sans bloquer les producteurs | Neutre — la Clean Architecture est un pattern interne, elle ne gère pas le scale elle-même |
+| **Sécurité** | Forte — isolation des données par service (chaque BDD est privée), périmètre de sécurité réduit par service | Moyenne — l'Event Store centralise les événements, nécessite chiffrement et contrôle d'accès au broker | Forte — les règles de sécurité métier sont dans le domaine, pas dans l'infrastructure (testables unitairement) |
+| **Maintenabilité** | Forte — petits codebases, équipes autonomes, déploiement indépendant | Forte — l'ajout de consommateurs ne modifie pas les producteurs existants | **Très forte** — changement de techno sans impact métier, testabilité maximale, ADR intégrables |
+
 Les trois styles ne sont pas en concurrence mais en complémentarité :
 
 - **Microservices** = organisation macro (comment découper le système)
@@ -208,22 +217,28 @@ Les trois styles ne sont pas en concurrence mais en complémentarité :
 
 ## 3. Analyse comparative des alternatives
 
-Le choix architectural ne s'est pas fait par défaut. Trois architectures candidates ont été évaluées en regard des contraintes spécifiques de HealthRuralNet.
+Le choix architectural ne s'est pas fait par défaut. Cinq styles architecturaux étudiés en cours ont été évalués en regard des contraintes spécifiques de HealthRuralNet.
 
 ### 3.1 Tableau comparatif
 
-| Critère | Monolithique | SOA / ESB | Microservices + Event-Driven |
-| ------- | ------------ | --------- | ---------------------------- |
-| **Modularité** | Faible — couplage fort entre modules, modification risquée | Moyenne — services découplés mais ESB central crée un SPOF | **Forte** — services indépendants, contrats d'interface stricts |
-| **Scalabilité** | Verticale uniquement — tout le système scale ensemble | Moyenne — scale par service mais l'ESB devient goulot | **Horizontale et ciblée** — chaque service scale selon sa charge |
-| **Maintenabilité** | Décroissante — dette technique s'accumule dans un seul codebase | Moyenne — dépend de la qualité de l'ESB et de la gouvernance | **Forte** — petits codebases autonomes, déploiement indépendant |
-| **Complexité initiale** | **Faible** — un seul projet, déploiement simple | Moyenne — nécessite un ESB, configuration des flux | Élevée — infrastructure distribuée, monitoring, orchestration |
-| **Mode offline** | Très difficile — le monolithe suppose une connexion permanente | Difficile — l'ESB est un point central qui doit être joignable | **Natif** — les événements se stockent localement et se rejouent |
-| **Interopérabilité SI** | Complexe — les adaptateurs s'ajoutent dans le monolithe | **Bonne** — c'est le cas d'usage historique du SOA | **Bonne** — service dédié d'interopérabilité avec adaptateurs |
-| **Résilience** | Faible — une panne impacte tout le système | Moyenne — l'ESB peut devenir SPOF | **Forte** — isolation des pannes par service |
-| **Adapté au contexte rural** | Non — suppose infrastructure stable et connexion fiable | Partiellement — l'ESB centralisé pose problème en zone isolée | **Oui** — conçu pour la distribution et la résilience réseau |
+| Critère | Monolithique | Client-Serveur classique | SOA / ESB | Peer-to-Peer | Microservices + Event-Driven |
+| ------- | ------------ | ------------------------ | --------- | ------------ | ---------------------------- |
+| **Modularité** | Faible — couplage fort | Faible — client lourd couplé au serveur | Moyenne — ESB central crée un SPOF | Forte — chaque nœud est autonome | **Forte** — services indépendants, contrats d'interface |
+| **Scalabilité** | Verticale uniquement | Verticale — le serveur est le goulot | Moyenne — l'ESB devient goulot | **Horizontale native** — ajout de nœuds | **Horizontale et ciblée** — chaque service scale selon sa charge |
+| **Sécurité** | Centralisée mais monolithique | Centralisée sur le serveur | Centralisée via l'ESB | Très difficile — pas de point de contrôle central | **Forte** — API Gateway + mTLS + RBAC par service |
+| **Maintenabilité** | Décroissante — dette technique | Moyenne — séparation client/serveur | Moyenne — dépend de la gouvernance ESB | Faible — complexité du réseau P2P | **Forte** — petits codebases autonomes |
+| **Mode offline** | Très difficile | Impossible — le client dépend du serveur | Difficile — l'ESB doit être joignable | Possible — les nœuds sont autonomes | **Natif** — events stockés localement et rejoués |
+| **Interopérabilité SI** | Complexe — adaptateurs dans le monolithe | Limitée — un seul protocole client-serveur | **Bonne** — cas d'usage historique du SOA | Complexe — pas de standard | **Bonne** — service dédié avec adaptateurs |
+| **Résilience** | Faible — SPOF total | Faible — le serveur est un SPOF | Moyenne — l'ESB est un SPOF | Forte — pas de point central | **Forte** — isolation des pannes par service |
+| **Adapté au contexte rural** | Non | Non — suppose connexion stable au serveur | Partiellement — ESB problématique en zone isolée | Partiellement — complexité opérationnelle | **Oui** — conçu pour distribution et résilience |
 
-### 3.2 Pourquoi le monolithique a été écarté
+### 3.2 Pourquoi le Client-Serveur classique et le Peer-to-Peer ont été écartés
+
+**Client-Serveur classique** : Ce style, fondement de nombreuses applications web, suppose une connexion permanente entre le client et le serveur central. C'est incompatible avec la contrainte offline critique de HealthRuralNet. De plus, le serveur unique est un SPOF — inacceptable pour une plateforme médicale où la disponibilité peut être vitale. L'historique du projet montre d'ailleurs que cette approche (Skype, Zoom) a déjà échoué.
+
+**Peer-to-Peer** : Le P2P offre une résilience naturelle (pas de serveur central) qui pourrait sembler adaptée aux zones rurales. Cependant, il présente deux défauts rédhibitoires pour un système médical : (1) la sécurité est très difficile à garantir sans point de contrôle central — or le RGPD et le HIPAA exigent un contrôle strict des accès ; (2) la complexité opérationnelle du réseau P2P est disproportionnée pour une équipe qui peine déjà à gérer une infrastructure classique (cf. difficultés de communication interne décrites dans le sujet).
+
+### 3.3 Pourquoi le monolithique a été écarté
 
 Le sujet décrit explicitement l'échec de l'approche initiale de HealthRuralNet : des outils monolithiques (Skype, Zoom) qui ne permettaient pas d'intégrer les dossiers médicaux, de fonctionner offline, ni de respecter les normes de sécurité. Un monolithe reproduirait ces mêmes limitations :
 
@@ -231,7 +246,7 @@ Le sujet décrit explicitement l'échec de l'approche initiale de HealthRuralNet
 - Mode offline ingérable sans architecture événementielle
 - Couplage fort rendant l'interopérabilité avec les SI hospitaliers coûteuse
 
-### 3.3 Pourquoi le SOA / ESB a été écarté
+### 3.4 Pourquoi le SOA / ESB a été écarté
 
 Le sujet mentionne que certains acteurs internes ont proposé un ESB pour centraliser les flux. Cette approche a été écartée pour plusieurs raisons :
 
@@ -239,7 +254,7 @@ Le sujet mentionne que certains acteurs internes ont proposé un ESB pour centra
 - **Rigidité** : le sujet décrit les difficultés d'intégration avec les plateformes SaaS qui imposaient leur propre format de données. Un ESB reproduirait cette rigidité en imposant un schéma de médiation centralisé.
 - **Coût de gouvernance** : le sujet mentionne des équipes aux pratiques hétérogènes. Un ESB nécessite une gouvernance forte et centralisée, ce qui est irréaliste dans ce contexte multi-acteurs.
 
-### 3.4 Pourquoi Microservices + Event-Driven est retenu
+### 3.5 Pourquoi Microservices + Event-Driven est retenu
 
 Cette combinaison est la seule à répondre simultanément aux trois contraintes majeures du sujet :
 
@@ -347,6 +362,38 @@ graph TD
 | **Verdict** | **Retenu** — adapté au volume et à la complexité opérationnelle d'une plateforme rurale | Surdimensionné — pertinent si HealthRuralNet atteint une échelle nationale massive |
 
 RabbitMQ est retenu pour sa simplicité opérationnelle. Le sujet décrit des zones avec infrastructure limitée — un cluster Kafka serait disproportionné. La migration vers Kafka reste possible grâce au découplage via le pattern Observer (cf. Part 3).
+
+### 5.4 Exemple de flux bout-en-bout : prise de rendez-vous
+
+Ce scénario illustre la complémentarité REST synchrone + événements asynchrones dans un cas d'usage concret.
+
+```mermaid
+sequenceDiagram
+    participant P as Patient (PWA)
+    participant GW as API Gateway
+    participant CS as Consultation Service
+    participant PS as Patient Service
+    participant MB as Message Broker
+    participant NS as Notification Service
+    participant IS as Interop Service
+
+    P->>GW: POST /appointments (JWT)
+    GW->>GW: Valide JWT + RBAC
+    GW->>CS: Route vers Consultation Service
+    CS->>PS: GET /patients/:id (REST sync)
+    PS-->>CS: Profil patient + consentements
+    CS->>CS: Crée le RDV, vérifie disponibilité médecin
+    CS-->>GW: 201 Created
+    GW-->>P: Confirmation RDV
+
+    CS->>MB: event: AppointmentCreated
+    MB->>NS: Consomme l'événement
+    NS->>P: Notification push + SMS de rappel
+    MB->>IS: Consomme l'événement
+    IS->>IS: Synchronise avec le SI hospitalier (FHIR)
+```
+
+**Lecture** : La création du RDV est synchrone (le patient attend la confirmation). Les effets secondaires (notification SMS, synchronisation SI hospitalier) sont asynchrones via le broker — le patient n'attend pas que le SMS soit envoyé ou que l'hôpital soit notifié.
 
 ## 6. Gestion du mode offline
 
@@ -513,9 +560,64 @@ graph TB
 
 L'approche est celle du **Defense in Depth** : chaque couche apporte une protection supplémentaire. La compromission d'une couche ne donne pas accès aux données — il faut franchir toutes les couches.
 
-## 8. Justification des choix
+## 8. Justification des choix — Synthèse
 
-<!-- Synthèse : pourquoi cette architecture répond aux besoins de HealthRuralNet -->
+Cette section consolide les arguments qui démontrent que l'architecture proposée répond aux contraintes majeures de HealthRuralNet.
+
+### 8.1 Matrice exigences → décisions architecturales
+
+| Exigence du sujet | Décision architecturale | Impact (M/S/Séc/Mai) | Section |
+| ------------------ | ----------------------- | -------------------- | ------- |
+| Consultations médicales à distance | Service Consultation dédié avec support vidéo/audio/chat, scalable indépendamment | **Scalabilité** — scale horizontal indépendant du reste | §4 |
+| Suivi des patients chroniques | Service Patient + Service Dossier Médical avec persistance MongoDB pour données non structurées | **Modularité** — séparation des responsabilités patient vs dossier | §4 |
+| Gestion sécurisée des dossiers médicaux | Chiffrement E2E (TLS 1.3 + AES-256), RBAC contextuel, Event Store pour audit trail | **Sécurité** — defense in depth, audit trail réglementaire | §7 |
+| Interconnexion avec structures de santé locales | Service Interopérabilité avec Adapter Pattern (HL7 v2, FHIR, GraphQL) | **Modularité + Maintenabilité** — adaptateurs isolés, ajout de formats sans impact | §4, Part 3 |
+| Connectivité variable / zones rurales | Architecture Event-Driven + Sync Service + stockage local chiffré | **Scalabilité + Sécurité** — découplage temporel + chiffrement offline | §2.2, §6 |
+| Mode offline obligatoire | Event sourcing local, queue d'événements, LWW avec alerte humaine pour conflits | **Maintenabilité** — historique complet, auditabilité native | §6 |
+| Conformité RGPD / HIPAA | Chiffrement au repos, consentement explicite, droit à l'oubli par anonymisation, stockage souverain | **Sécurité** — conformité réglementaire intégrée dans l'architecture | §7.4 |
+| Multi-pays / réglementations différentes | Découpage microservices + déploiement multi-région via API Gateway | **Modularité + Scalabilité** — adaptation par région sans impact global | §2.1, §7.4 |
+| Accessibilité patients peu technophiles | PWA mobile-first + canal SMS/vocal pour zones sans data | **Maintenabilité** — un seul codebase PWA pour mobile et web | §1 |
+| Évolutivité et pérennité | Clean Architecture isolant le domaine métier des choix d'infrastructure | **Maintenabilité** — changement de techno sans réécriture métier | §2.3 |
+| Résilience face aux pannes | Microservices isolés + Circuit Breaker + Message Broker async | **Scalabilité + Modularité** — isolation des pannes par service | §2.1, §5, Part 3 |
+
+### 8.2 Risques identifiés et mitigations
+
+| Risque | Impact | Mitigation |
+| ------ | ------ | ---------- |
+| Complexité opérationnelle des microservices | Coût de monitoring et déploiement élevé | Conteneurisation (Docker/K8s), observabilité centralisée (cf. Part 5), démarrage progressif avec 3-4 services core puis extension |
+| Latence réseau en zone rurale | Expérience utilisateur dégradée | Mode offline-first, cache local, delta sync prioritaire pour données critiques |
+| Adoption par les professionnels de santé | Rejet de la plateforme | Interface simplifiée, break-glass access pour urgences, biométrie optionnelle (pas obligatoire) |
+| Cohérence des données en mode offline | Conflits de mise à jour concurrente | LWW + détection de conflits + alerte humaine + historique complet dans l'Event Store |
+| Dépendance au message broker | SPOF potentiel si RabbitMQ tombe | Cluster RabbitMQ haute disponibilité + fallback en mode dégradé (REST direct) |
+
+### 8.3 Conclusion
+
+L'architecture Microservices + Event-Driven + Clean Architecture n'est pas un choix par effet de mode. Elle est la réponse directe aux trois défis fondamentaux de HealthRuralNet :
+
+1. **La connectivité** : seule une architecture événementielle permet un mode offline natif avec synchronisation différée
+2. **L'hétérogénéité** : seul un découpage en services indépendants permet d'absorber la diversité des SI hospitaliers et des réglementations
+3. **La pérennité** : seule la Clean Architecture garantit que les changements technologiques inévitables (le sujet en décrit déjà plusieurs) n'impacteront pas la logique métier
+
+Le surcoût en complexité initiale est le prix de cette robustesse. Il est maîtrisé par des choix pragmatiques : RabbitMQ plutôt que Kafka, RBAC contextuel plutôt qu'ABAC pur, LWW plutôt que CRDT. Chaque choix vise le **juste nécessaire** pour le contexte rural, pas la solution la plus sophistiquée.
+
+### 8.4 Propositions du sujet écartées et arbitrages
+
+Le sujet mentionne plusieurs propositions internes qui ont été évaluées puis écartées de l'architecture. Ce tri est un acte architectural délibéré.
+
+| Proposition du sujet | Verdict | Justification |
+| -------------------- | ------- | ------------- |
+| **Blockchain pour l'inaltérabilité des dossiers** | Écartée | Le sujet lui-même identifie les problèmes : latence, scalabilité, coût énergétique. L'Event Store avec journal immuable offre la même garantie d'inaltérabilité sans ces inconvénients. Un hash SHA-256 sur chaque événement suffit pour détecter les altérations. |
+| **Algorithme de chiffrement maison (ChaCha20 modifié)** | Écartée | Anti-pratique en sécurité. Les algorithmes propriétaires n'ont pas été audités par la communauté. AES-256 et TLS 1.3 sont éprouvés et compatibles avec les SI hospitaliers utilisant RSA-2048. |
+| **Authentification biométrique obligatoire** | Adaptée → optionnelle | Le sujet mentionne la résistance des médecins. La biométrie est proposée en complément du MFA, jamais comme seul facteur, et jamais obligatoire. |
+| **Indice de santé prédictif en temps réel** | Reportée | Questions éthiques non résolues (influence sur les consultations) et responsabilité légale en cas de prédiction erronée. Peut être intégrée dans une phase ultérieure avec un cadre éthique défini. |
+| **Chatbot de tri des consultations** | Reportée | Responsabilité légale en cas de mauvais diagnostic. Acceptable uniquement comme aide à la prise de RDV (pas de diagnostic), avec validation humaine systématique. |
+| **Intégration wearables connectés** | Reportée | Données non normalisées, capteurs peu fiables. Nécessite d'abord un standard de normalisation des données IoT médicales avant intégration dans le Dossier Médical. |
+| **Format intermédiaire propriétaire** | Écartée | Le sujet mentionne les standards HL7 et FHIR. Créer un format propriétaire ajouterait une couche de traduction sans valeur et compliquerait la rétrocompatibilité. Le Service Interopérabilité utilise les standards existants via le pattern Adapter. |
+| **Assistant vocal NLP médecine rurale** | Reportée | Aucune étude d'usage n'a été menée (le sujet le dit explicitement). Peut être envisagé en phase 2 si une étude terrain valide le besoin. |
+
+**Principe directeur** : chaque proposition écartée ou reportée l'est pour une raison documentée, pas par ignorance. Les propositions reportées pourront être intégrées dans des versions futures sans modifier l'architecture core, grâce au découplage microservices + Clean Architecture.
+
+> **Note** : les propositions marquées "Reportée" ne sont pas rejetées par manque de compétence ou d'ambition. Elles nécessitent des prérequis concrets (cadre éthique validé, étude d'usage terrain, normalisation des données IoT) qui dépassent le scope du MVP. L'architecture est explicitement conçue pour les accueillir sans refonte — un nouveau microservice ou un nouvel adaptateur suffit, conformément au principe Open/Closed (SOLID).
 
 ---
 
