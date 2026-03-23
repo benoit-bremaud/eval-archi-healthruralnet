@@ -1,139 +1,288 @@
-## Diagramme de classes UML  
-  
- ![Diagramme de classes UML](images/Healthcare%20User%20Management.png)
+# Partie 4 — Conception du Modèle Métier
 
-  
-  
-Le modèle métier de **HealthRuralNet** a été construit à partir des besoins principaux identifiés dans l’analyse fonctionnelle : permettre l’accès aux soins à distance, organiser les interactions entre patients et professionnels de santé, sécuriser les données médicales, assurer un suivi dans le temps et encadrer l’accès aux informations sensibles. Le choix a été fait de proposer un diagramme **suffisamment riche pour représenter les objets métier essentiels**, tout en restant **lisible et compréhensible** dans le cadre de l’épreuve. L’objectif n’était donc pas de modéliser tous les détails techniques possibles, mais de construire un **socle métier cohérent, évolutif et maintenable**.  
-  
-### 1. Une modélisation centrée sur les acteurs du système  
-  
-Le diagramme est d’abord structuré autour de la classe abstraite **`Utilisateur`**. Ce choix est justifié par le fait que plusieurs acteurs de la plateforme partagent un ensemble de caractéristiques communes : un identifiant, un nom, un prénom, un email, un téléphone et un mécanisme d’authentification. Plutôt que de répéter ces attributs dans plusieurs classes séparées, ils ont été factorisés dans une classe mère.  
-  
-Cette décision répond directement à une bonne pratique de conception orientée objet : **éviter la duplication**. En centralisant les données communes dans `Utilisateur`, le modèle devient plus simple à maintenir. Si demain un nouvel attribut commun doit être ajouté, comme une langue préférée, un statut de compte ou une date de dernière connexion, il suffira de le faire à un seul endroit. Ce choix renforce donc la **maintenabilité** et l’**évolutivité** du système.  
-  
-La classe `Utilisateur` est déclarée **abstraite**, car elle ne correspond pas à un acteur concret manipulé directement dans le métier. On ne crée pas “un utilisateur générique” dans le domaine médical ; on crée un patient, un médecin, un infirmier ou un administrateur. Cette abstraction permet de traduire correctement la réalité métier tout en posant une base commune solide.  
-  
-### 2. L’héritage pour spécialiser les rôles métier  
-  
-À partir de `Utilisateur`, plusieurs spécialisations sont proposées : **`Patient`**, **`ProfessionnelSante`** et **`Administrateur`**. Le choix de ces classes vient du besoin de représenter les profils principaux explicitement mentionnés dans le sujet. Le patient est au cœur de la prise en charge, le professionnel de santé intervient dans les consultations et le suivi, et l’administrateur gère le fonctionnement global de la plateforme.  
-  
-La classe **`ProfessionnelSante`** a elle aussi été pensée comme une classe abstraite. Ce choix est important, car tous les soignants n’ont pas exactement les mêmes responsabilités. Un médecin peut diagnostiquer et prescrire, tandis qu’un infirmier assure davantage le suivi, les constantes ou l’accompagnement médical. Il était donc pertinent de créer une classe intermédiaire commune aux soignants, puis de la spécialiser en **`Medecin`** et **`Infirmier`**.  
-  
-Ce mécanisme d’**héritage** permet de représenter clairement la hiérarchie métier :  
-- `Utilisateur` contient ce qui est commun à tous les acteurs ;  
-- `ProfessionnelSante` regroupe ce qui est commun aux soignants ;  
-- `Medecin` et `Infirmier` ajoutent ensuite leurs comportements propres.  
-  
-Ce choix est justifié car il améliore la **modularité** du modèle. Chaque classe a une responsabilité claire et le système peut être étendu plus tard avec d’autres types de professionnels, comme un pharmacien, un spécialiste ou un coordinateur médical, sans devoir remettre en cause la structure existante.  
-  
-### 3. Le patient comme entité centrale du domaine  
-  
-Le diagramme place volontairement **`Patient`** au centre de plusieurs relations métier. Ce choix est directement lié à la finalité du projet : HealthRuralNet est une plateforme destinée à améliorer l’accès aux soins et le suivi médical des populations rurales. Le patient devient donc naturellement l’entité pivot autour de laquelle s’organisent les autres objets métier.  
-  
-Le patient possède un **`DossierMedical`**, prend des **`RendezVous`**, participe à des **`Consultation`**, bénéficie d’un **`SuiviMedical`** et gère des **`Consentement`**. Cette structuration a été retenue pour représenter le cycle global de la prise en charge :  
-- prise de contact avec le système,  
-- organisation de l’échange médical,  
-- production d’informations cliniques,  
-- suivi dans le temps,  
-- contrôle de l’accès aux données.  
-  
-Le choix d’associer un **`DossierMedical`** unique au patient est particulièrement justifié. Dans un système de santé, le dossier médical joue le rôle de mémoire clinique. Il centralise les antécédents, traitements, allergies et autres éléments nécessaires à une prise de décision médicale. Le représenter comme une classe distincte permet de bien séparer l’identité de la personne et ses données médicales. Cette distinction est importante, car elle rend le modèle plus clair et plus facilement maintenable.  
-  
-### 4. Le dossier médical comme objet métier protégé  
-  
-Le **`DossierMedical`** est une classe centrale du diagramme, mais aussi l’une des plus sensibles. Il a donc été conçu avec une attention particulière. Les données qu’il contient sont privées et ne doivent pas être manipulées librement. C’est pour cette raison que les attributs sont notés avec le symbole `-` dans le diagramme : cela traduit l’**encapsulation**.  
-  
-L’encapsulation est particulièrement justifiée dans un projet de télémédecine, car les informations médicales ne doivent jamais être exposées directement. Le dossier contient des informations sensibles, comme les antécédents, traitements ou allergies, qui doivent être consultées et modifiées selon des règles très strictes. Le modèle prévoit donc des méthodes dédiées comme `ajouterAntecedent()`, `ajouterTraitement()`, `obtenirResume()` ou `verifierAutorisationAcces()`.  
-  
-Ce choix présente plusieurs avantages :  
-- il **protège l’intégrité** des données ;  
-- il impose un **point de passage unique** pour appliquer les règles métier ;  
-- il facilite les évolutions futures, car la logique d’accès peut être modifiée sans casser le reste du système.  
-  
-En d’autres termes, l’encapsulation n’est pas utilisée ici seulement pour respecter la théorie orientée objet, mais parce qu’elle répond à une contrainte réelle du domaine : la **confidentialité des données de santé**.  
-  
-### 5. La classe `Confidentialite` pour séparer les règles d’accès  
-  
-Le choix d’introduire une classe **`Confidentialite`** associée au `DossierMedical` est également justifié par le contexte du projet. Le sujet insiste fortement sur la sécurité, le respect des accès et les contraintes réglementaires. Il était donc pertinent de ne pas mélanger directement les règles de confidentialité avec les autres données médicales.  
-  
-En séparant `Confidentialite` du `DossierMedical`, le modèle gagne en **clarté** et en **modularité**. Le dossier médical conserve son rôle de conteneur des données cliniques, tandis que la confidentialité devient un objet spécialisé chargé de représenter les règles de partage et d’autorisation. Ce découpage respecte le principe de responsabilité unique : chaque classe a un rôle précis.  
-  
-Ce choix prépare également le système à évoluer. Si les règles d’accès deviennent plus complexes dans une future version, il sera plus simple d’enrichir la classe `Confidentialite` que de modifier en profondeur le `DossierMedical`.  
-  
-### 6. Les identifiants sécurisés comme objet séparé  
-  
-La classe **`IdentifiantsSecurises`** a été modélisée séparément de `Utilisateur`. Ce choix est justifié par un souci de séparation des responsabilités. Les informations liées à l’authentification, comme le mot de passe haché ou le secret MFA, ne relèvent pas du même niveau métier que l’identité générale de l’utilisateur.  
-  
-Les isoler dans une classe dédiée apporte plusieurs bénéfices :  
-- meilleure lisibilité du modèle ;  
-- meilleure protection des données sensibles ;  
-- possibilité d’adapter les mécanismes d’authentification sans impacter la classe `Utilisateur`.  
-  
-Ce choix renforce donc la **sécurité** et la **maintenabilité**. Il est également cohérent avec de bonnes pratiques de conception, car il évite de transformer la classe `Utilisateur` en objet trop volumineux et trop chargé.  
-  
-### 7. Le rendez-vous comme étape d’organisation distincte de la consultation  
-  
-Le modèle distingue volontairement **`RendezVous`** et **`Consultation`**. Ce choix est important, car ces deux notions ne représentent pas la même réalité métier.  
-  
-Le `RendezVous` correspond à la **planification** de l’échange médical : date, heure, motif, statut, éventuelle annulation ou reprogrammation. La `Consultation`, quant à elle, correspond à l’**acte médical réalisé** : déroulement, compte-rendu, type de consultation, éventuelle prescription.  
-  
-Cette séparation est justifiée car, dans la réalité, un rendez-vous peut être annulé, déplacé ou ne jamais aboutir à une consultation effective. À l’inverse, une consultation ne devrait exister que si un acte médical a réellement eu lieu. Mélanger ces deux notions dans une seule classe aurait rendu le modèle plus confus. En les séparant, on améliore la **cohérence métier** et la **clarté fonctionnelle**.  
-  
-### 8. Le polymorphisme avec la hiérarchie des consultations  
-  
-La classe **`Consultation`** a été définie comme **abstraite**, puis spécialisée en **`Teleconsultation`**, **`ConsultationPresentielle`** et **`ConsultationUrgence`**. Ce choix permet de représenter les différentes modalités de prise en charge évoquées ou implicites dans le sujet.  
-  
-Toutes les consultations partagent des éléments communs : une date, un motif, un compte-rendu et un cycle de vie. Il était donc logique de factoriser ces informations dans une classe mère. En revanche, certaines caractéristiques varient selon le type :  
-- la téléconsultation nécessite un lien visio ;  
-- la consultation présentielle peut être liée à un lieu ou une salle ;  
-- la consultation d’urgence implique un niveau de priorité spécifique.  
-  
-Le **polymorphisme** est mis en avant à travers la méthode `facturer()`. Cette méthode est déclarée dans la classe `Consultation`, puis spécialisée dans chaque sous-classe. Ce choix est justifié parce que le calcul ou la logique de facturation peut varier selon la nature de l’acte. Une téléconsultation, une consultation physique ou une urgence ne répondent pas forcément aux mêmes règles tarifaires ou administratives.  
-  
-Ce mécanisme permet de rendre le modèle plus **souple** et plus **évolutif**. Si un nouveau type de consultation apparaît plus tard, comme une visite mobile ou une téléexpertise, il suffira d’ajouter une nouvelle sous-classe avec son propre comportement. On évite ainsi des traitements conditionnels lourds et dispersés dans le code.  
-  
-### 9. La prescription comme prolongement direct de l’acte médical  
-  
-La classe **`Prescription`** a été reliée à la `Consultation` et au `Medecin`. Ce choix traduit une logique métier simple : une prescription n’apparaît pas de manière isolée, elle est généralement produite à la suite d’une consultation, et elle relève du rôle du médecin.  
-  
-Ce lien permet de conserver une bonne **traçabilité métier**. On sait à quelle consultation correspond la prescription, et quel professionnel l’a émise. C’est un point important pour la cohérence du domaine et pour les exigences futures de suivi ou d’audit.  
-  
-Le choix de modéliser `Prescription` comme une classe dédiée, plutôt que comme un simple attribut texte de la consultation, est également justifié. Une prescription est un objet métier à part entière, qui peut posséder sa propre date, ses propres instructions, son propre statut et potentiellement évoluer dans de futures versions du système.  
-  
-### 10. Le suivi médical pour représenter la continuité des soins  
-  
-Le sujet ne se limite pas à la consultation ponctuelle ; il insiste aussi sur le **suivi des patients**, notamment dans un contexte rural où certaines pathologies nécessitent une surveillance régulière. C’est pourquoi la classe **`SuiviMedical`** a été intégrée au modèle.  
-  
-Ce choix est justifié par la volonté de ne pas réduire la plateforme à un simple outil de rendez-vous ou de visioconférence. HealthRuralNet doit aussi soutenir la continuité des soins. Le suivi médical permet donc de représenter les objectifs de prise en charge, les observations successives et l’évolution de l’état du patient dans le temps.  
-  
-Cette classe améliore la richesse métier du diagramme et montre que le modèle couvre bien la logique de prise en charge globale, pas seulement l’instant de consultation.  
-  
-### 11. Le consentement pour intégrer la dimension réglementaire  
-  
-La classe **`Consentement`** a été ajoutée pour répondre à une contrainte forte du sujet : la gestion sécurisée et encadrée des données médicales. Dans un système de santé, l’accès aux informations d’un patient ne peut pas être implicite ou laissé au hasard. Il doit être justifié, autorisé et contrôlé.  
-  
-Le choix de modéliser le consentement comme une classe indépendante est donc pertinent pour plusieurs raisons :  
-- il reflète une réalité métier et réglementaire ;  
-- il permet de dater l’autorisation ;  
-- il distingue clairement la donnée médicale de la permission d’y accéder.  
-  
-Cette séparation renforce la **cohérence du modèle** et montre que la conception prend en compte non seulement les besoins fonctionnels, mais aussi les contraintes légales et éthiques.  
-  
-### 12. La structure de santé pour préparer l’interconnexion  
-  
-La classe **`StructureSante`** rattache les professionnels à un établissement ou à une organisation. Ce choix a été fait pour répondre au besoin d’interconnexion avec les structures locales mentionnées dans le sujet : hôpitaux, cliniques, cabinets, dispensaires.  
-  
-Même si cette partie du diagramme reste volontairement simple, elle est importante car elle prépare le modèle à une architecture plus large. En introduisant cette classe, on montre que les professionnels n’agissent pas tous de manière isolée ; ils s’inscrivent dans un environnement de santé organisé. Cela améliore la crédibilité du modèle et sa capacité à évoluer vers des mécanismes d’interopérabilité plus poussés.  
-  
-## Prise en compte des bonnes pratiques de conception  
-  
-Plusieurs bonnes pratiques ont guidé les choix de modélisation.  
-  
-D’abord, le diagramme cherche à respecter une logique de **responsabilité claire**. Chaque classe correspond à un objet métier identifiable et ne mélange pas plusieurs rôles. Par exemple, l’authentification est séparée dans `IdentifiantsSecurises`, la confidentialité dans `Confidentialite`, la planification dans `RendezVous` et l’acte médical dans `Consultation`.  
-  
-Ensuite, la conception favorise la **modularité**. Les classes sont découplées autant que possible pour que l’évolution de l’une n’entraîne pas la remise en cause de toutes les autres. Ce choix est fondamental pour un projet qui devra probablement évoluer avec le temps, intégrer de nouvelles pratiques médicales ou s’adapter à différents contextes régionaux.  
-  
-Le modèle a également été pensé pour la **maintenabilité**. La factorisation par héritage réduit la duplication, l’encapsulation protège les données sensibles et le polymorphisme évite les traitements conditionnels complexes. L’ensemble reste donc plus simple à comprendre, à tester et à faire évoluer.  
-  
-Enfin, la conception reste volontairement **équilibrée**. Le diagramme n’est ni trop minimaliste, ni inutilement surchargé. Il couvre les objets métier essentiels sans tomber dans une modélisation trop technique ou trop détaillée, ce qui aurait nui à la lisibilité.  
+## 1. Objectif du modèle métier
+
+Le modèle métier de **HealthRuralNet** a pour objectif de traduire les besoins fonctionnels du sujet en objets informatiques cohérents. Il doit représenter les acteurs, les données médicales, les échanges entre patients et soignants, ainsi que les contraintes de sécurité et d’organisation propres à une plateforme de télémédecine en zone rurale.
+
+Le modèle a été conçu pour être :
+- **cohérent avec les besoins métier**
+- **évolutif**
+- **modulaire**
+- **maintenable**
+- **compatible avec les exigences de confidentialité**
+
+---
+
+## 2. Diagramme de classes UML
+
+![Diagramme de classes UML](images/Healthcare%20User%20Management.png)
+
+---
+
+## 3. Inventaire des entités métier
+
+### 3.1 Entités principales
+
+| Entité | Description | Attributs clés |
+|---|---|---|
+| `Utilisateur` | Classe abstraite représentant tout acteur connecté à la plateforme | id, nom, prenom, email, telephone |
+| `Patient` | Personne prise en charge via la plateforme | numeroPatient, groupeSanguin |
+| `ProfessionnelSante` | Classe abstraite regroupant les soignants | numeroProfessionnel, specialite |
+| `Medecin` | Professionnel habilité à diagnostiquer et prescrire | specialite |
+| `Infirmier` | Professionnel chargé du suivi et de certains actes de soin | specialite |
+| `Administrateur` | Utilisateur chargé de gérer la plateforme | role |
+| `DossierMedical` | Dossier centralisant les informations de santé du patient | numeroDossier, antecedents, traitements, allergies |
+| `Consultation` | Classe abstraite représentant un acte médical | id, dateConsultation, motif, compteRendu |
+| `RendezVous` | Élément de planification d’une future consultation | id, dateHeure, motif, statut |
+| `Prescription` | Résultat éventuel d’une consultation médicale | id, datePrescription, instructions |
+| `SuiviMedical` | Élément représentant la continuité des soins | id, objectifs, statut |
+| `Consentement` | Autorisation donnée par le patient pour l’accès à ses données | id, dateDebut, dateFin, actif |
+| `StructureSante` | Structure à laquelle sont rattachés les professionnels | id, nom, typeStructure |
+| `Confidentialite` | Règles d’accès au dossier médical | niveauAcces, partageAutorise |
+| `IdentifiantsSecurises` | Informations d’authentification d’un utilisateur | hashMotDePasse, secretMFA |
+
+### 3.2 Entités secondaires identifiées
+
+| Entité | Description | Justification |
+|---|---|---|
+| `AidantFamilial` | Personne pouvant accompagner le patient dans certaines démarches | utile pour les patients dépendants ou âgés |
+| `Medicament` | Médicament présent dans une prescription | permet de détailler les prescriptions |
+| `Facture` | Élément lié à la facturation d’une consultation | utile pour illustrer le polymorphisme de facturation |
+| `Alerte` | Notification ou signal médical important | pertinent dans un système de suivi |
+| `Notification` | Message envoyé à un utilisateur | utile pour les rappels de rendez-vous ou alertes |
+| `DocumentMedical` | Fichier lié au dossier médical | utile pour ordonnances, comptes-rendus, examens |
+
+---
+
+## 4. Énumérations identifiées
+
+Les énumérations permettent de limiter certaines valeurs possibles et de rendre le modèle plus robuste.
+
+| Énumération | Valeurs possibles |
+|---|---|
+| `TypeConsultation` | Teleconsultation, Presentielle, Urgence |
+| `StatutRDV` | Planifie, Confirme, Annule, Termine |
+| `TypeStructure` | Hopital, Clinique, Cabinet, Dispensaire |
+| `StatutConsultation` | EnAttente, EnCours, Terminee |
+| `StatutSuivi` | Actif, Suspendu, Cloture |
+| `NiveauAcces` | Lecture, LectureEcriture, Restreint |
+| `RoleAdministrateur` | SuperAdmin, Gestionnaire, Support |
+
+---
+
+## 5. Description détaillée des classes
+
+### `Utilisateur`
+Classe abstraite servant de base à tous les acteurs du système. Elle factorise les attributs et comportements communs comme l’identité, les coordonnées et l’authentification.
+
+### `Patient`
+Spécialisation de `Utilisateur`. Il représente la personne prise en charge par la plateforme. Il peut prendre rendez-vous, consulter une partie de son dossier et gérer ses consentements.
+
+### `ProfessionnelSante`
+Classe abstraite spécialisée à partir de `Utilisateur`. Elle regroupe les éléments communs aux soignants, comme le numéro professionnel, la spécialité et la capacité à consulter un dossier médical.
+
+### `Medecin`
+Spécialisation de `ProfessionnelSante`. Il possède des responsabilités spécifiques, notamment le diagnostic et l’émission de prescriptions.
+
+### `Infirmier`
+Spécialisation de `ProfessionnelSante`. Il intervient davantage dans le suivi, les observations et l’accompagnement du patient.
+
+### `Administrateur`
+Spécialisation de `Utilisateur`. Il gère les comptes, les rôles et le fonctionnement général de la plateforme.
+
+### `DossierMedical`
+Classe centrale du domaine. Elle contient les informations médicales du patient : antécédents, traitements, allergies, résumé clinique. C’est une classe sensible qui impose un contrôle d’accès strict.
+
+### `Confidentialite`
+Classe associée au `DossierMedical`. Elle représente les règles de partage et d’autorisation d’accès aux données médicales.
+
+### `IdentifiantsSecurises`
+Classe dédiée à l’authentification. Elle isole les données sensibles de connexion du reste des informations utilisateur.
+
+### `RendezVous`
+Classe de planification. Elle représente un créneau prévu entre un patient et un professionnel de santé, indépendamment du fait que la consultation ait réellement lieu.
+
+### `Consultation`
+Classe abstraite représentant l’acte médical réalisé. Elle contient les éléments communs aux différents types de consultation.
+
+### `Teleconsultation`
+Sous-classe de `Consultation` adaptée au soin à distance. Elle ajoute la notion de lien visio.
+
+### `ConsultationPresentielle`
+Sous-classe de `Consultation` adaptée à une rencontre physique dans une structure de santé.
+
+### `ConsultationUrgence`
+Sous-classe de `Consultation` adaptée aux situations urgentes nécessitant une prise en charge prioritaire.
+
+### `Prescription`
+Classe représentant l’ordonnance ou les recommandations médicales produites à l’issue d’une consultation.
+
+### `SuiviMedical`
+Classe représentant la continuité de la prise en charge, notamment pour les pathologies chroniques ou la surveillance post-consultation.
+
+### `Consentement`
+Classe représentant l’accord donné par le patient pour le traitement ou l’accès à ses données médicales.
+
+### `StructureSante`
+Classe représentant les établissements ou organisations médicales auxquelles les professionnels sont rattachés.
+
+---
+
+## 6. Justification de l’héritage
+
+L’héritage a été utilisé pour représenter les similarités entre plusieurs acteurs du système sans dupliquer les attributs et comportements communs.
+
+Le choix d’une classe abstraite **`Utilisateur`** est justifié par le fait que tous les acteurs partagent :
+- une identité
+- des coordonnées
+- des mécanismes de connexion
+- des opérations de gestion de profil
+
+Au lieu de répéter ces éléments dans `Patient`, `Medecin`, `Infirmier` ou `Administrateur`, ils sont factorisés dans une classe mère.
+
+La classe abstraite **`ProfessionnelSante`** permet ensuite de factoriser ce qui est commun aux soignants :
+- identifiant professionnel
+- spécialité
+- consultation du dossier médical
+- rédaction de compte-rendu
+
+### Avantages de ce choix
+- réduction de la duplication
+- meilleure lisibilité du modèle
+- ajout plus simple de nouveaux types de professionnels
+- meilleure maintenabilité
+
+### Limites
+L’héritage peut devenir rigide si les rôles évoluent fortement ou se combinent. Par exemple, un utilisateur pourrait cumuler plusieurs rôles dans certains contextes.
+
+### Alternative possible
+Une approche par **composition** aurait pu être utilisée, avec une classe `Utilisateur` associée à un ou plusieurs rôles. Cette solution serait plus flexible, mais aussi plus complexe à représenter et à expliquer dans ce modèle métier. Pour ce projet, l’héritage reste plus clair et plus adapté au rendu UML attendu.
+
+---
+
+## 7. Justification de l’encapsulation
+
+L’encapsulation a été utilisée pour protéger les données sensibles et imposer un accès contrôlé aux informations critiques.
+
+Le meilleur exemple est **`DossierMedical`**. Les attributs liés aux :
+- antécédents
+- allergies
+- traitements
+- informations cliniques
+
+sont définis comme **privés** dans le diagramme. Ils ne peuvent donc pas être modifiés librement depuis l’extérieur.
+
+L’accès se fait via des méthodes publiques comme :
+- `ajouterAntecedent()`
+- `ajouterTraitement()`
+- `obtenirResume()`
+- `verifierAutorisationAcces()`
+
+Ce choix est cohérent avec les exigences du domaine :
+- respect de la **confidentialité**
+- conformité avec le **RGPD**
+- protection contre des accès ou modifications non contrôlés
+- centralisation des règles métier
+
+L’encapsulation est aussi visible dans **`IdentifiantsSecurises`**, où les données liées à l’authentification sont isolées, et dans **`Confidentialite`**, qui gère les règles d’accès au dossier.
+
+---
+
+## 8. Justification du polymorphisme
+
+Le polymorphisme est illustré principalement avec la hiérarchie de **`Consultation`**.
+
+La classe abstraite `Consultation` définit un comportement commun avec la méthode :
+
+- `facturer()`
+
+Cette méthode est ensuite redéfinie dans :
+- `Teleconsultation`
+- `ConsultationPresentielle`
+- `ConsultationUrgence`
+
+Le comportement varie selon le type réel de consultation. Une urgence, une consultation physique ou une téléconsultation ne suivent pas forcément les mêmes règles de gestion ou de coût.
+
+### Intérêt de ce choix
+- facilite l’évolution du système
+- évite des conditions `if / else` trop nombreuses
+- permet d’ajouter facilement de nouveaux types de consultation
+- respecte le principe ouvert/fermé
+
+### Autres cas possibles de polymorphisme
+- `seConnecter()` selon le mode d’authentification
+- `envoyerNotification()` selon le canal utilisé (email, SMS, application)
+- `calculerPriorite()` selon le type de suivi ou d’alerte
+
+---
+
+## 9. Justification des associations, compositions et agrégations
+
+### Association
+Une **association** est utilisée lorsqu’il existe un lien métier entre deux classes, sans relation forte de cycle de vie.
+
+Exemples :
+- un `Patient` prend des `RendezVous`
+- un `ProfessionnelSante` réalise des `Consultation`
+- un `Medecin` émet des `Prescription`
+
+### Composition
+Une **composition** est utilisée lorsqu’un objet ne peut pas exister de manière cohérente sans un autre.
+
+Exemples :
+- un `Patient` possède exactement un `DossierMedical`
+- un `Utilisateur` possède ses `IdentifiantsSecurises`
+- un `DossierMedical` possède sa `Confidentialite`
+
+Dans ces cas, la suppression de l’objet principal entraîne logiquement la disparition de l’objet contenu ou de sa pertinence métier.
+
+### Agrégation
+Une **agrégation** pourrait être utilisée dans des cas plus souples, par exemple entre `StructureSante` et `ProfessionnelSante`, car un professionnel appartient à une structure mais reste un objet métier indépendant.
+
+---
+
+## 10. Cardinalités et règles de gestion
+
+### Cardinalités principales
+- un `Patient` possède **exactement un** `DossierMedical`
+- un `Patient` peut avoir **0 à plusieurs** `RendezVous`
+- un `Patient` peut avoir **0 à plusieurs** `Consultation`
+- un `ProfessionnelSante` peut assurer **0 à plusieurs** `Consultation`
+- une `Consultation` peut produire **0 à plusieurs** `Prescription`
+- un `Patient` peut donner **0 à plusieurs** `Consentement`
+- une `StructureSante` regroupe **0 à plusieurs** `ProfessionnelSante`
+
+### Invariants métier
+- un patient ne peut avoir qu’un seul dossier médical principal
+- une prescription ne peut être émise que par un médecin
+- une consultation est liée à un patient et à un professionnel de santé
+- un rendez-vous peut exister sans consultation effective
+- l’accès au dossier médical doit être contrôlé
+- les données médicales sensibles ne sont jamais exposées directement
+
+---
+
+## 11. Cohérence avec les besoins et l’architecture
+
+Ce modèle métier est cohérent avec :
+- les besoins de consultation à distance
+- le suivi patient
+- la sécurisation des données médicales
+- l’organisation des rendez-vous
+- l’intégration des professionnels et structures de santé
+
+Il est également compatible avec une architecture modulaire ou orientée services, car les objets métier sont bien séparés et les responsabilités clairement réparties.
+
+---
+
+## 12. Conclusion
+
+Le diagramme de classes proposé constitue une base métier cohérente pour **HealthRuralNet**. Il couvre les principales entités du domaine, distingue les rôles et responsabilités, et intègre les concepts fondamentaux de la programmation orientée objet.
+
+Les choix de conception sont justifiés de la manière suivante :
+- **héritage** pour factoriser les éléments communs et spécialiser les rôles
+- **encapsulation** pour protéger les données sensibles et contrôler les accès
+- **polymorphisme** pour adapter le comportement selon le type d’objet manipulé
+- **associations, compositions et cardinalités** pour représenter fidèlement les relations métier
+
+L’ensemble garantit un modèle **lisible**, **maintenable**, **évolutif** et adapté à une plateforme de télémédecine soumise à de fortes contraintes métier et réglementaires.
