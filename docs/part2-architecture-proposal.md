@@ -208,13 +208,46 @@ Les trois styles ne sont pas en concurrence mais en complémentarité :
 
 ## 3. Analyse comparative des alternatives
 
+Le choix architectural ne s'est pas fait par défaut. Trois architectures candidates ont été évaluées en regard des contraintes spécifiques de HealthRuralNet.
+
+### 3.1 Tableau comparatif
+
 | Critère | Monolithique | SOA / ESB | Microservices + Event-Driven |
-|---------|-------------|-----------|------------------------------|
-| Modularité | | | |
-| Scalabilité | | | |
-| Maintenabilité | | | |
-| Complexité | | | |
-| Adapté au contexte rural | | | |
+| ------- | ------------ | --------- | ---------------------------- |
+| **Modularité** | Faible — couplage fort entre modules, modification risquée | Moyenne — services découplés mais ESB central crée un SPOF | **Forte** — services indépendants, contrats d'interface stricts |
+| **Scalabilité** | Verticale uniquement — tout le système scale ensemble | Moyenne — scale par service mais l'ESB devient goulot | **Horizontale et ciblée** — chaque service scale selon sa charge |
+| **Maintenabilité** | Décroissante — dette technique s'accumule dans un seul codebase | Moyenne — dépend de la qualité de l'ESB et de la gouvernance | **Forte** — petits codebases autonomes, déploiement indépendant |
+| **Complexité initiale** | **Faible** — un seul projet, déploiement simple | Moyenne — nécessite un ESB, configuration des flux | Élevée — infrastructure distribuée, monitoring, orchestration |
+| **Mode offline** | Très difficile — le monolithe suppose une connexion permanente | Difficile — l'ESB est un point central qui doit être joignable | **Natif** — les événements se stockent localement et se rejouent |
+| **Interopérabilité SI** | Complexe — les adaptateurs s'ajoutent dans le monolithe | **Bonne** — c'est le cas d'usage historique du SOA | **Bonne** — service dédié d'interopérabilité avec adaptateurs |
+| **Résilience** | Faible — une panne impacte tout le système | Moyenne — l'ESB peut devenir SPOF | **Forte** — isolation des pannes par service |
+| **Adapté au contexte rural** | Non — suppose infrastructure stable et connexion fiable | Partiellement — l'ESB centralisé pose problème en zone isolée | **Oui** — conçu pour la distribution et la résilience réseau |
+
+### 3.2 Pourquoi le monolithique a été écarté
+
+Le sujet décrit explicitement l'échec de l'approche initiale de HealthRuralNet : des outils monolithiques (Skype, Zoom) qui ne permettaient pas d'intégrer les dossiers médicaux, de fonctionner offline, ni de respecter les normes de sécurité. Un monolithe reproduirait ces mêmes limitations :
+
+- Impossible de scaler la téléconsultation vidéo indépendamment de la gestion des dossiers
+- Mode offline ingérable sans architecture événementielle
+- Couplage fort rendant l'interopérabilité avec les SI hospitaliers coûteuse
+
+### 3.3 Pourquoi le SOA / ESB a été écarté
+
+Le sujet mentionne que certains acteurs internes ont proposé un ESB pour centraliser les flux. Cette approche a été écartée pour plusieurs raisons :
+
+- **SPOF** : l'ESB centralisé est incompatible avec la connectivité intermittente des zones rurales. Si l'ESB est injoignable, tout le système est paralysé.
+- **Rigidité** : le sujet décrit les difficultés d'intégration avec les plateformes SaaS qui imposaient leur propre format de données. Un ESB reproduirait cette rigidité en imposant un schéma de médiation centralisé.
+- **Coût de gouvernance** : le sujet mentionne des équipes aux pratiques hétérogènes. Un ESB nécessite une gouvernance forte et centralisée, ce qui est irréaliste dans ce contexte multi-acteurs.
+
+### 3.4 Pourquoi Microservices + Event-Driven est retenu
+
+Cette combinaison est la seule à répondre simultanément aux trois contraintes majeures du sujet :
+
+1. **Connectivité variable** → l'architecture événementielle permet le mode offline natif
+2. **Interopérabilité hétérogène** → un service dédié avec adaptateurs (Adapter Pattern) isole la complexité
+3. **Multi-pays / multi-réglementation** → le découpage en services permet d'adapter la conformité par région sans impacter le reste
+
+Le surcoût en complexité initiale est assumé et maîtrisé par l'adoption de la Clean Architecture en interne de chaque service (cf. section 2.3).
 
 ## 4. Architecture détaillée
 
